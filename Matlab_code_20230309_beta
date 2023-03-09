@@ -1,0 +1,147 @@
+function [d_Q_d_mu, d_Q_d_a, d_Q_d_b, A_mu_a_b, A_x_y, ...
+        mu_a_b_new, pocet,grad,hess] = code_dz_20220909(x, y, a, b, mu, U)
+    m = length(x);
+    U_inv = inv(U);
+    %U_inv = U \ eye(2*m);
+    mu_a_b_old = [mu; a; b];
+    mu_a_b_new =  mu_a_b_old + 0.1*randn(size(mu_a_b_old));
+    %mu_a_b_new = abs(mu_a_b_old * 1000);
+    pocet = 0;
+    %------------------------1st derivations-------------------------------
+        d_Q_d_mu = zeros(m, 1);
+        d_Q_d_a = 0;
+        d_Q_d_b = 0;
+    %------------------------2nd derivations A_mu_a_b----------------------
+        A_mu_a_b = zeros(m + 2, m + 2);
+%         d2_Q_a_a = 0;
+%         d2_Q_b_b = 0;
+%         d2_Q_a_b = 0;
+    %------------------------2nd derivations A_x_y-------------------------
+        A_x_y = zeros(m + 2, 2*m);
+
+        crit = 1;
+     while (crit > 1e-6) && (pocet < 100)
+%     while (pocet < 1000)
+        mu_a_b_old = [mu; a; b];
+    %------------------------1st derivations-------------------------------
+        d_Q_d_mu = zeros(m, 1);
+        d_Q_d_a = 0;
+        d_Q_d_b = 0;
+        %------------------------2nd derivations A_mu_a_b----------------------
+        A_mu_a_b = zeros(m + 2, m + 2);
+        d2_Q_a_a = 0;
+        d2_Q_b_b = 0;
+        d2_Q_a_b = 0;
+%         %------------------------2nd derivations A_x_y-------------------------
+%         A_x_y = zeros(m + 2, 2*m);
+        for i = 1 : m
+            %------------------------1st derivations-----------------------
+            d_Q_d_b_mu_sigma_1 = 0;
+            d_Q_d_b_mu_sigma_2 = 0;
+            %------------------------2nd derivations A_mu_a_b--------------
+            d2_Q_mu_a = 0;
+            d2_Q_mu_b = 0;
+            d2_Q_b_b_mu_sigma = 0;
+            %------------------------2nd derivations A_x_y-----------------
+            d2_Q_a_x = 0;
+            d2_Q_b_x = 0;
+            d2_Q_b_y = 0;
+            d2_Q_a_y = 0;
+            for j = 1 : m
+                %------------------------1st derivations-------------------
+                d_Q_d_mu(i) = d_Q_d_mu(i) + (x(j) - ...
+                    mu(j))*U_inv(i, j) + ...
+                    b*(x(j) - mu(j))*U_inv(m + i, j) + ...
+                    (y(j) - a - b*mu(j))*U_inv(i, m + j) + ...
+                    b*(y(j) - a - b*mu(j))*U_inv(m + i, m + j);
+                d_Q_d_b_mu_sigma_1 = d_Q_d_b_mu_sigma_1 + ...
+                    mu(j)*U_inv(i, m + j); 
+                d_Q_d_b_mu_sigma_2 = d_Q_d_b_mu_sigma_2 + ...
+                    mu(j)*U_inv(m + i, m + j);
+                %------------------------2nd derivations A_mu_a_b----------
+                A_mu_a_b(i, j) = 2*(U_inv(i, j) + b*U_inv(m + i, j) + ...
+                    b*U_inv(i, m + j) + (b^2)*U_inv(m + i, m + j));
+                d2_Q_mu_a = d2_Q_mu_a + U_inv(i, m + j) + ...
+                    b*U_inv(m + i, m + j); %% VW corrected: was U_inv(m + i, m + j)
+                d2_Q_mu_b = d2_Q_mu_b +  (x(j) - ...
+                    mu(j))*U_inv(m + i, j) + ...
+                    (y(j) - a - b*mu(j))*U_inv(m + i, m + j) + ...
+                    mu(j)*U_inv(i, m + j) + b*mu(j)*U_inv(m + i, m + j);
+                d2_Q_a_a = d2_Q_a_a + U_inv(m + i, m + j);
+                d2_Q_b_b_mu_sigma = d2_Q_b_b_mu_sigma + ...
+                    mu(j)*U_inv(m + i, m + j);
+%                 %------------------------2nd derivations A_x_y-------------
+%                 A_x_y(i, j) = -2*(U_inv(i, j) + b*U_inv(m + i, j));
+%                 A_x_y(i, m + j) = -2*(U_inv(i, m + j) + ...
+%                     b*U_inv(m + i, m + j));
+%                 d2_Q_a_x = d2_Q_a_x + U_inv(i, m + j);
+%                 d2_Q_b_x = d2_Q_b_x + mu(j)*U_inv(i, m + j);
+%                 d2_Q_b_y = d2_Q_b_y + mu(j)*U_inv(m + i, m + j);
+%                 d2_Q_a_y = d2_Q_a_y + U_inv(m + i, m + j);
+            end
+            %------------------------1st derivations-----------------------
+            d_Q_d_mu(i) = -2*d_Q_d_mu(i);
+            d_Q_d_a = d_Q_d_a + (x(i) - mu(i))*...
+                sum(U_inv(i, (m + 1):2*m)) + ...
+                (y(i) - a - b*mu(i))*sum(U_inv(m + i, (m + 1):2*m));
+            d_Q_d_b = d_Q_d_b + (x(i) - mu(i))*d_Q_d_b_mu_sigma_1 + ...
+                (y(i)- a - b*mu(i))*d_Q_d_b_mu_sigma_2;
+
+            %------------------------2nd derivations A_mu_a_b--------------
+            A_mu_a_b(i, m + 1) = 2*d2_Q_mu_a;
+            A_mu_a_b(m + 1, i) = 2*d2_Q_mu_a;
+            A_mu_a_b(i, m + 2) = 2*d2_Q_mu_b;
+            A_mu_a_b(m + 2, i) = 2*d2_Q_mu_b;
+            d2_Q_b_b = d2_Q_b_b + mu(i)*d2_Q_b_b_mu_sigma;
+            d2_Q_a_b = d2_Q_a_b + mu(i)*sum(U_inv(m + i, (m + 1):2*m));  
+%             %------------------------2nd derivations A_x_y-----------------
+%             A_x_y(m + 1, i) = -2*d2_Q_a_x;
+%             A_x_y(m + 2, i) = -2*d2_Q_b_x;
+%             A_x_y(m + 1, m + i) = 2*d2_Q_b_y;
+%             A_x_y(m + 2, m + i) = 2*d2_Q_a_y;
+        end
+        %------------------------1st derivations---------------------------
+        d_Q_d_a = -2*d_Q_d_a;
+        d_Q_d_b = -2*d_Q_d_b;
+        %------------------------2nd derivations A_mu_a_b------------------
+        A_mu_a_b(m + 1, m + 1) = 2*d2_Q_a_a;
+        A_mu_a_b(m + 2, m + 2) = 2*d2_Q_b_b;
+        A_mu_a_b(m + 1, m + 2) = 2*d2_Q_a_b;
+        A_mu_a_b(m + 2, m + 1) = 2*d2_Q_a_b;
+        %------------------------2nd derivations A_x_y---------------------
+        % nothing
+        grad = [d_Q_d_mu; d_Q_d_a; d_Q_d_b];
+        hess = A_mu_a_b;
+        mu_a_b_new = mu_a_b_old - (hess) \ grad;
+        mu = mu_a_b_new(1:m);
+        a = mu_a_b_new(m + 1);
+        b = mu_a_b_new(m + 2);
+        pocet = pocet + 1;
+        crit = norm(mu_a_b_new - mu_a_b_old);
+        %crit = 0;
+    end
+    for i = 1 : m
+        % VW Doplnene deklaracie
+        d2_Q_a_x = 0;
+        d2_Q_b_x = 0;
+        d2_Q_b_y = 0;
+        d2_Q_a_y = 0;
+        for j = 1 : m
+            %------------------------2nd derivations A_x_y-------------
+            A_x_y(i, j) = -2*(U_inv(i, j) + b*U_inv(m + i, j));
+            A_x_y(i, m + j) = -2*(U_inv(i, m + j) + ...
+                b*U_inv(m + i, m + j));
+            d2_Q_a_x = d2_Q_a_x + U_inv(i, m + j);
+            d2_Q_b_x = d2_Q_b_x + mu(j)*U_inv(i, m + j);
+            d2_Q_b_y = d2_Q_b_y + mu(j)*U_inv(m + i, m + j);
+            d2_Q_a_y = d2_Q_a_y + U_inv(m + i, m + j);
+        end
+        %------------------------2nd derivations A_x_y-----------------
+        A_x_y(m + 1, i) = -2*d2_Q_a_x;
+        A_x_y(m + 2, i) = -2*d2_Q_b_x;
+        % VW Zemenene poradie riadkov a doplnene minus znamienko
+        A_x_y(m + 1, m + i) = -2*d2_Q_a_y;
+        A_x_y(m + 2, m + i) =  -2*d2_Q_b_y;
+    end
+end
+
